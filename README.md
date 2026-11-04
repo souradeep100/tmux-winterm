@@ -108,17 +108,7 @@ network loss, or an expired connection can end the transport even while tmux and
 its remote programs survive. Keepalives cannot reliably run while Windows
 suspends the SSH process; reconnect manually to restore the session.
 
-An earlier approximately ten-minute idle transport failure remains unexplained.
-Later v0.2.2 validation included a full-hour soak and four fresh 30-minute soaks
-with no observed disconnects, SSH errors, or UI stalls. Those tests held a
-temporary keep-awake request and **did not test standby survival**.
 
-For investigation, the portable archive includes `Start-Tmux-Diagnostics.cmd`.
-It enables a bounded `settings\tmux-lifecycle.log` containing UTC timestamps,
-opaque session IDs, and event labels, not terminal content or credentials.
-Diagnostics are off for normal launches. An already-running process does not
-retroactively inherit the environment flag; confirm that new events are logged.
-See the [diagnostic workflow](doc/cascadia/TmuxControlModeDesign.md#disconnect-diagnostics-and-the-unresolved-idle-case).
 
 ## Source and architecture
 
