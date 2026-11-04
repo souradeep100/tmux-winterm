@@ -15,12 +15,12 @@ code and newer owner instructions take precedence if they have changed.
 
 | Item | Snapshot before this documentation commit |
 |---|---|
-| Fork | `souradeep100/terminal` |
+| Fork | `souradeep100/tmux-winterm` (renamed from `souradeep100/terminal`) |
 | Working branch | `schakrabarti/tmux-control` |
 | Upstream | `microsoft/terminal`, `main` |
 | Upstream base after rebase | `188822fa51dba7e11b64801483f4909db5fd020a` |
 | Feature tip after rebase | `ce84e1846bc79ff9eed481e1430468b58c1d1e36` |
-| Published experimental build | [tmux-control-v0.2.2](https://github.com/souradeep100/terminal/releases/tag/tmux-control-v0.2.2), portable x64 |
+| Published experimental build | [tmux-control-v0.2.2](https://github.com/souradeep100/tmux-winterm/releases/tag/tmux-control-v0.2.2), portable x64 |
 | Published build's source tag | `54ce8347a1120ae9ace8ceb555876fb7b80cfb6c`, before the rebase |
 | Upstream PR | [#20864](https://github.com/microsoft/terminal/pull/20864), closed and unmerged; the owner requested that it remain closed |
 
@@ -28,6 +28,10 @@ All six feature patches replayed unchanged onto the new upstream base. A rebase
 changes commit IDs, not previously published binaries. The rebased source was
 built and exercised locally; v0.2.2 was not rebuilt or replaced after the rebase.
 Do not treat the release executable as a build of current `HEAD`.
+
+The fork was renamed to `tmux-winterm` and its default branch was set to
+`schakrabarti/tmux-control` on 2026-11-04. The fork's `main` branch remains separate;
+the repository rename did not rename executables, move tags, or rebuild releases.
 
 ### Reading order and continuation checklist
 
@@ -57,7 +61,7 @@ Suggested opening prompt for a new session:
 
 ```text
 Read AGENTS.md, doc/cascadia/TmuxControlModeDesign.md, and doc/cascadia/Tmux.md.
-I am working on souradeep100/terminal, branch schakrabarti/tmux-control.
+I am working on souradeep100/tmux-winterm, branch schakrabarti/tmux-control.
 Use the existing tmux implementation and verify the current source/runtime.
 Preserve native pane state, one transport per control connection, opt-in SSH,
 and dedicated-window session ownership. Keep upstream PR #20864 closed.

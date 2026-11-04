@@ -1,3 +1,175 @@
+# tmux-winterm
+
+<p>
+  <img src="doc/images/tmux-winterm.png" alt="tmux-winterm: Terminal with a green tmux split-pane badge" width="180" />
+</p>
+
+**Native tmux control-mode integration for Windows Terminal.**
+
+An experimental, independent fork of [microsoft/terminal](https://github.com/microsoft/terminal),
+inspired by [iTerm2's tmux integration](https://iterm2.com/documentation-tmux-integration.html).
+Remote tmux windows become native Terminal tabs, and remote panes become native
+terminal controls with their own scrollback, colors, selection, and rendering.
+One SSH/control connection carries the panes belonging to that connection.
+
+This is not an official Microsoft distribution or a claim of full iTerm2 parity.
+The portable executable is still named `WindowsTerminal.exe`; renaming the
+repository does not rename the application or its package identity.
+
+[Download v0.2.2](https://github.com/souradeep100/tmux-winterm/releases/tag/tmux-control-v0.2.2)
+| [Usage guide](doc/cascadia/Tmux.md)
+| [Architecture and Copilot handoff](doc/cascadia/TmuxControlModeDesign.md)
+
+## What the tmux integration adds
+
+| Feature | Behavior |
+|---|---|
+| Native tabs and panes | Each control connection opens a dedicated Terminal window, reusing the existing native window host. |
+| Native scrollback and rendering | Live output uses Terminal's VT parser, text buffer, and renderer rather than periodic screen captures. |
+| Session-bound controls | **+** and normal new-tab shortcuts create tmux windows in that session, including while Settings is selected. |
+| Ordinary Terminal behavior | Non-tmux windows retain normal **+**, profiles, and dropdowns. |
+| Persistent-session reattachment | Reconnect to a surviving tmux session and restore its windows, layouts, retained history, and exported terminal state. |
+| Optional SSH launch | Enable `ssh.useTmux` for direct SSH profiles; ordinary SSH remains the default. Manual `tmux -CC` entry also works. |
+| Responsive input/output path | Input is queued without waiting for command acknowledgments; already-received same-pane output is coalesced without a timer. |
+| Compatibility fallback | Exercised with tmux 2.9a and 3.4; per-window sizing falls back to legacy global sizing where required. |
+
+## Download and run
+
+The published build is an **experimental portable x64 ZIP**:
+
+- [WindowsTerminal-tmux-control-v0.2.2-win-x64.zip](https://github.com/souradeep100/tmux-winterm/releases/download/tmux-control-v0.2.2/WindowsTerminal-tmux-control-v0.2.2-win-x64.zip)
+- [SHA-256 checksum](https://github.com/souradeep100/tmux-winterm/releases/download/tmux-control-v0.2.2/WindowsTerminal-tmux-control-v0.2.2-win-x64.zip.sha256)
+
+Extract the complete archive to a new folder and run `WindowsTerminal.exe` from
+that folder. Do not copy just the executable or overwrite a running installation.
+The portable build keeps its settings separately and does not auto-update.
+
+The Microsoft Store, winget, and Canary links in the upstream documentation below
+install **upstream Windows Terminal**, not this fork's tmux feature.
+
+The branch was rebased onto upstream `main` after v0.2.2 was published.
+**The v0.2.2 assets have not been rebuilt or replaced after that rebase.**
+See the release notes and handoff document for the source snapshot and validation
+history; a release binary and the latest branch tip are not interchangeable.
+
+## Connect to tmux
+
+Install tmux on the remote machine, connect with SSH, then run:
+
+```sh
+tmux -u -CC new-session -A -s windows-terminal
+```
+
+Or, in this fork's **Settings > Profiles > [SSH profile] > General**, enable
+**Use tmux control mode**. The equivalent profile setting is:
+
+```json
+{
+    "name": "Remote SSH",
+    "commandline": "ssh.exe example-host",
+    "ssh.useTmux": true,
+    "historySize": 9001
+}
+```
+
+The option is off by default and applies to new connections. It supports direct
+`ssh`/`ssh.exe` profiles, not arbitrary shell wrappers. Keep positional remote
+commands out of the base SSH command line when enabling it.
+Manual control entry also works from supported local transports such as WSL.
+
+## Window and session behavior
+
+- Each control connection opens a separate native session window with **+** and
+  **Settings**, without a profile dropdown.
+- Native split, focus, directional resize, and zoom actions operate on tmux.
+- Closing the original gateway tab leaves its dedicated session window running.
+- Closing the dedicated **window** detaches without killing remote programs.
+  Explicitly closing a tmux **pane or tab** kills the corresponding remote panes.
+- Reopening the SSH profile reattaches to the surviving `windows-terminal`
+  session. For manual entry, reconnect and rerun the attach command.
+- Escape does not detach the gateway; Escape inside a native tmux pane remains
+  application input. The gateway's `n` creates a tmux window; `X` leaves a broken
+  control stream.
+
+Reattachment is **not process resurrection** after a tmux server or remote
+machine restart.
+
+## Limitations and connection reliability
+
+This remains experimental. It does not support moving tmux tabs/panes between
+Terminal windows or mixing them with unrelated local panes. State restoration
+depends on the server's exported modes; tmux 3.4 does not export bracketed-paste
+state. Previously drawn image protocols and unavailable key-reporting modes
+cannot be reconstructed. Split-orientation changes currently use remote
+`tmux select-layout`.
+
+**Automatic SSH reconnect is not implemented.** Windows sleep / Modern Standby,
+network loss, or an expired connection can end the transport even while tmux and
+its remote programs survive. Keepalives cannot reliably run while Windows
+suspends the SSH process; reconnect manually to restore the session.
+
+An earlier approximately ten-minute idle transport failure remains unexplained.
+Later v0.2.2 validation included a full-hour soak and four fresh 30-minute soaks
+with no observed disconnects, SSH errors, or UI stalls. Those tests held a
+temporary keep-awake request and **did not test standby survival**.
+
+For investigation, the portable archive includes `Start-Tmux-Diagnostics.cmd`.
+It enables a bounded `settings\tmux-lifecycle.log` containing UTC timestamps,
+opaque session IDs, and event labels, not terminal content or credentials.
+Diagnostics are off for normal launches. An already-running process does not
+retroactively inherit the environment flag; confirm that new events are logged.
+See the [diagnostic workflow](doc/cascadia/TmuxControlModeDesign.md#disconnect-diagnostics-and-the-unresolved-idle-case).
+
+## Source and architecture
+
+The default development branch is `schakrabarti/tmux-control`.
+The fork's `main` branch remains separate for upstream tracking.
+
+```powershell
+git clone --branch schakrabarti/tmux-control https://github.com/souradeep100/tmux-winterm.git
+Set-Location tmux-winterm
+```
+
+```text
+native TermControl <-> TmuxPaneConnection <-> TmuxSession + protocol Client
+                                                <-> existing SSH/ConPTY <-> tmux
+dedicated TerminalPage <-> TmuxWindow controller <-> existing native window host
+```
+
+Protocol parsing lives in `TmuxControl.h`; transport and pane adapters in
+`TmuxConnection.*`; session-window policy in `TmuxWindow.*`; and native layout
+adaptation in `TmuxIntegration.cpp`, under `src\cascadia\TerminalApp`.
+The implementation reuses Terminal's renderer and native host, not a second
+windowing/rendering stack.
+
+For builds, see [doc/building.md](doc/building.md) and the prerequisites below.
+For design decisions, lifecycle invariants, validation history, and a prompt
+for continuing in a fresh Copilot session, read
+[TmuxControlModeDesign.md](doc/cascadia/TmuxControlModeDesign.md).
+The feature-specific test/soak harnesses used during development were local and
+are not included in the repository.
+
+## Attribution and contributions
+
+Windows Terminal and the console infrastructure are developed by Microsoft and
+the upstream contributors. This fork retains their source, attribution,
+[license](LICENSE), [notices](NOTICE.md), and upstream documentation below.
+Fork development and documentation were AI-assisted under the owner's design
+direction. The project logo is an AI-generated adaptation of the upstream
+Terminal icon with a tmux-inspired split-pane badge.
+Read [AGENTS.md](AGENTS.md) and [CONTRIBUTING.md](CONTRIBUTING.md)
+before contributing. Upstream PR #20864 remains closed; this fork is not an
+upstream-approved implementation.
+
+---
+
+<details>
+<summary><strong>Original upstream Windows Terminal README</strong></summary>
+
+The following is retained upstream documentation. Its branding, build badge,
+downloads, release channels, and team contacts refer to `microsoft/terminal`,
+not to the `tmux-winterm` fork or its build status.
+
 ![Windows Terminal project logos and branding image](https://github.com/microsoft/terminal/assets/91625426/333ddc76-8ab2-4eb4-a8c0-4d7b953b1179)
 
 [![Terminal Build Status](https://dev.azure.com/shine-oss/terminal/_apis/build/status%2FTerminal%20CI?branchName=main)](https://dev.azure.com/shine-oss/terminal/_build/latest?definitionId=1&branchName=main)
@@ -426,3 +598,5 @@ additional questions or comments.
 [conduct-FAQ]: https://opensource.microsoft.com/codeofconduct/faq/
 [conduct-email]: mailto:opencode@microsoft.com
 [store-install-link]: https://aka.ms/terminal
+
+</details>
